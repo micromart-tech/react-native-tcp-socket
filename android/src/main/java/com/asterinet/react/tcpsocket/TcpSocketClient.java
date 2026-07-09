@@ -192,6 +192,11 @@ class TcpSocketClient extends TcpSocket {
             }
         } catch (IOException e) {
             receiverListener.onClose(getId(), e);
+        } finally {
+            // Shut down the executors so the threads are released instead of leaking
+            // and eventually exhausting the process's thread budget (pthread_create OOM).
+            listenExecutor.shutdown();
+            writeExecutor.shutdown();
         }
     }
 
