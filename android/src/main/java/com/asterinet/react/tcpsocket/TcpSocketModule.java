@@ -128,7 +128,16 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
     @SuppressWarnings("unused")
     @ReactMethod
     public void write(final int cId, @NonNull final String base64String, final int msgId) {
-        TcpSocketClient socketClient = getTcpClient(cId);
+        final TcpSocketClient socketClient;
+        try {
+            socketClient = getTcpClient(cId);
+        } catch (IllegalArgumentException e) {
+            // Socket was already closed/removed before this write reached the native module.
+            // Report the write failure to the specific write callback instead of emitting a
+            // global error, which may have no listeners and crash the JS side.
+            tcpEvtListener.onWritten(cId, msgId, new IOException(e.getMessage(), e));
+            return;
+        }
         byte[] data = Base64.decode(base64String, Base64.NO_WRAP);
         socketClient.write(msgId, data);
     }
@@ -140,7 +149,13 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
         executorService.execute(new Runnable() {
             @Override
             public void run() {
-                TcpSocketClient socketClient = getTcpClient(cId);
+                final TcpSocketClient socketClient;
+                try {
+                    socketClient = getTcpClient(cId);
+                } catch (IllegalArgumentException e) {
+                    // Socket was already closed/removed; nothing to do.
+                    return;
+                }
                 socketClient.destroy();
                 socketMap.remove(cId);
             }
@@ -159,7 +174,13 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
         executorService.execute(new Runnable() {
             @Override
             public void run() {
-                TcpSocketServer socketServer = getTcpServer(cId);
+                final TcpSocketServer socketServer;
+                try {
+                    socketServer = getTcpServer(cId);
+                } catch (IllegalArgumentException e) {
+                    // Server has already been closed/removed; nothing to do.
+                    return;
+                }
                 socketServer.close();
                 socketMap.remove(cId);
             }
@@ -187,7 +208,13 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
     @SuppressWarnings("unused")
     @ReactMethod
     public void setNoDelay(@NonNull final Integer cId, final boolean noDelay) {
-        final TcpSocketClient client = getTcpClient(cId);
+        final TcpSocketClient client;
+        try {
+            client = getTcpClient(cId);
+        } catch (IllegalArgumentException e) {
+            // Socket has already been closed/removed; nothing to do.
+            return;
+        }
         try {
             client.setNoDelay(noDelay);
         } catch (IOException e) {
@@ -198,7 +225,13 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
     @SuppressWarnings("unused")
     @ReactMethod
     public void setKeepAlive(@NonNull final Integer cId, final boolean enable, final int initialDelay) {
-        final TcpSocketClient client = getTcpClient(cId);
+        final TcpSocketClient client;
+        try {
+            client = getTcpClient(cId);
+        } catch (IllegalArgumentException e) {
+            // Socket has already been closed/removed; nothing to do.
+            return;
+        }
         try {
             client.setKeepAlive(enable, initialDelay);
         } catch (IOException e) {
@@ -209,15 +242,23 @@ public class TcpSocketModule extends ReactContextBaseJavaModule {
     @SuppressWarnings("unused")
     @ReactMethod
     public void pause(final int cId) {
-        TcpSocketClient client = getTcpClient(cId);
-        client.pause();
+        try {
+            TcpSocketClient client = getTcpClient(cId);
+            client.pause();
+        } catch (IllegalArgumentException e) {
+            // Socket has already been closed/removed; nothing to do.
+        }
     }
 
     @SuppressWarnings("unused")
     @ReactMethod
     public void resume(final int cId) {
-        TcpSocketClient client = getTcpClient(cId);
-        client.resume();
+        try {
+            TcpSocketClient client = getTcpClient(cId);
+            client.resume();
+        } catch (IllegalArgumentException e) {
+            // Socket has already been closed/removed; nothing to do.
+        }
     }
 
     @SuppressWarnings("unused")
