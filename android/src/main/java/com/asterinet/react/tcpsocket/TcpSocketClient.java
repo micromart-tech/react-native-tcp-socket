@@ -152,22 +152,30 @@ class TcpSocketClient extends TcpSocket {
      * @param data data to be sent
      */
     public void write(final int msgId, final byte[] data) {
-        writeExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (socket == null) {
-                    receiverListener.onError(getId(), new IOException("Attempted to write to closed socket"));
-                    return;
+        try {
+            writeExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    if (socket == null) {
+                        receiverListener.onError(getId(), new IOException("Attempted to write to closed socket"));
+                        return;
+                    }
+                    try {
+                        socket.getOutputStream().write(data);
+                        receiverListener.onWritten(getId(), msgId, null);
+                    } catch (IOException e) {
+                        receiverListener.onWritten(getId(), msgId, e);
+                        receiverListener.onError(getId(), e);
+                    }
                 }
-                try {
-                    socket.getOutputStream().write(data);
-                    receiverListener.onWritten(getId(), msgId, null);
-                } catch (IOException e) {
-                    receiverListener.onWritten(getId(), msgId, e);
-                    receiverListener.onError(getId(), e);
-                }
-            }
-        });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // The executor has been shut down by a concurrent destroy() call. Report the
+            // write failure gracefully instead of letting the exception propagate.
+            final IOException error = new IOException("Socket write executor shut down", e);
+            receiverListener.onWritten(getId(), msgId, error);
+            receiverListener.onError(getId(), error);
+        }
     }
 
     public ReadableMap getPeerCertificate() {
