@@ -120,6 +120,9 @@ public final class TcpSocketServer extends TcpSocket {
         @Override
         public void run() {
             ServerSocket serverSocket = server.getServerSocket();
+            if (serverSocket == null) {
+                return;
+            }
             try {
                 while (!serverSocket.isClosed()) {
                     Socket socket = serverSocket.accept();
