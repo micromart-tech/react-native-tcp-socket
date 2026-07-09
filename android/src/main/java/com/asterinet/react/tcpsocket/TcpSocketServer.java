@@ -102,6 +102,9 @@ public final class TcpSocketServer extends TcpSocket {
             }
         } catch (IOException e) {
             mReceiverListener.onClose(getId(), e);
+        } finally {
+            // Shut down the accept loop executor to release its thread.
+            listenExecutor.shutdown();
         }
     }
 
